@@ -5,9 +5,10 @@ const Weather = () => {
   const [weather, setWeather] = useState([]);
   const [searchedCity, setSearchedCity] = useState("");
   const [debouncing, setDebouncing] = useState(null);
-  let TopFiveCities = ["Delhi", "Mumbai", "Bangalore", "Chennai", "Kolkata"];
+  const [error, setError] = useState(""); // New state for error messages
+  const TopFiveCities = ["Delhi", "Mumbai", "Bangalore", "Chennai", "Kolkata"];
 
-  //api calling 
+  // API call with error handling
   const fetchData = async (city) => {
     const apiKey = "b03a640e5ef6980o4da35b006t5f2942";
     try {
@@ -16,38 +17,48 @@ const Weather = () => {
       );
       return response.data;
     } catch (e) {
+      setError("Failed to fetch weather data. Please try again later.");
       console.log(e);
+      return null; // Return null to handle the error gracefully
     }
   };
 
   const fetchFiveData = async () => {
-    // Used Promise.all to wait for all city data to be fetched
+    setError(""); // Clear any previous errors
     const allCitiesWeather = await Promise.all(
-      TopFiveCities.map((city) => fetchData(city)) 
+      TopFiveCities.map(async (city) => {
+        const data = await fetchData(city);
+        return data; // return the data (or null if error occurred)
+      })
     );
 
-     // Set the state with the weather data
-    setWeather(allCitiesWeather);
-   
+    // Filter out any null data (from failed API calls)
+    const validWeatherData = allCitiesWeather.filter((data) => data !== null);
+
+    // Set state with valid weather data only
+    setWeather(validWeatherData);
   };
 
   useEffect(() => {
     fetchFiveData();
   }, []);
 
-  //delete button functionality
+  // Delete button functionality
   const handleDelete = (city) => {
     const newData = weather.filter((e) => e.city !== city);
     setWeather(newData);
   };
 
-  //search button functionality
+  // Search button functionality
   const fetchNewData = async (city) => {
     const newSearchedCity = await fetchData(city);
     if (newSearchedCity && newSearchedCity.city) {
       if (newSearchedCity.city.toLowerCase() === city.toLowerCase()) {
-        setWeather((prevWeather) => [newSearchedCity, ...prevWeather]); 
+        setWeather((prevWeather) => [newSearchedCity, ...prevWeather]);
+        setError(""); // Clear any errors on successful search
       }
+    } else {
+      setError("City not found. Please try a different city.");
     }
   };
 
@@ -65,8 +76,9 @@ const Weather = () => {
       }
     }, 300);
 
-    setDebouncing(timer); //debouncing for delaying the api calls
+    setDebouncing(timer); // Debouncing for delaying the API calls
   };
+
   return (
     <>
       <div className="container-bg p-10">
@@ -74,8 +86,16 @@ const Weather = () => {
           <input
             onChange={handleChange}
             className="w-[70%] border-[2px] border-white rounded-[60px] py-2 mx-auto"
-            placeholder="search the city"
-          ></input>
+            placeholder="Search the city"
+          />
+          {error && (
+            <div className="text-red-500 mt-4 text-center">{error}</div> // Show error message if there's an error
+          )}
+
+          {weather.length === 0 && !error && (
+            <div className="text-white text-center mt-4">Loading weather data...</div>
+          )}
+
           {weather.map((e, index) => (
             <div key={index}>
               <div className="flex justify-between mb-5 mt-10 border-top border-white">
@@ -89,26 +109,26 @@ const Weather = () => {
               </div>
 
               <div className="flex justify-center xl:justify-between align-center gap-5 flex-wrap">
-              {e.daily.slice(0, 3).map((e, index) => (
-                <div
-                  key={index}
-                  className="flex flex-col gap-5 text-white text-sm sm:text-xl font-medium mt-5 text-center border-white border-[2px] rounded-xl p-3"
-                >
-                  <h4>{`Day : ${index + 1}`}</h4>
-                  <div className="flex gap-5 align-center justify-center">
-                    <h4>{e.condition.description}</h4>
-                    <img
-                      src={e.condition.icon_url}
-                      alt="icon"
-                      className="w-[20px] h-[20px] sm:w-[30px] sm:h-[30px] pt-[2px]"
-                    />
-                  </div>
+                {e.daily.slice(0, 3).map((e, index) => (
+                  <div
+                    key={index}
+                    className="flex flex-col gap-5 text-white text-sm sm:text-xl font-medium mt-5 text-center border-white border-[2px] rounded-xl p-3"
+                  >
+                    <h4>{`Day : ${index + 1}`}</h4>
+                    <div className="flex gap-5 align-center justify-center">
+                      <h4>{e.condition.description}</h4>
+                      <img
+                        src={e.condition.icon_url}
+                        alt="icon"
+                        className="w-[20px] h-[20px] sm:w-[30px] sm:h-[30px] pt-[2px]"
+                      />
+                    </div>
 
-                  <h4>{`temprature of the day : ${e.temperature.day}`}</h4>
-                  <h4>{`Minimum temprature : ${e.temperature.minimum}`}</h4>
-                  <h4>{`maximum temprature : ${e.temperature.maximum}`}</h4>
-                </div>
-              ))}
+                    <h4>{`Temperature of the day : ${e.temperature.day}`}</h4>
+                    <h4>{`Minimum temperature : ${e.temperature.minimum}`}</h4>
+                    <h4>{`Maximum temperature : ${e.temperature.maximum}`}</h4>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
